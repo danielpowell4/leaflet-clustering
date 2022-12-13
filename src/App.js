@@ -20,7 +20,7 @@ const fetchIcon = (count, size) => {
   return icons[count];
 };
 
-const DEFAULT_CENTER = [40.7831, -73.9712]; // center of manhattan
+const DEFAULT_CENTER = [40.721058, -73.87687];
 
 const filterTemplate = [
   {
@@ -48,7 +48,7 @@ const asCurrency = new Intl.NumberFormat("en-US", {
 
 const App = () => {
   const [bounds, setBounds] = React.useState(null);
-  const [zoom, setZoom] = React.useState(12);
+  const [zoom, setZoom] = React.useState(11);
   const mapRef = React.useRef();
   function updateMap() {
     const b = mapRef.current.leafletElement.getBounds();
