@@ -15,9 +15,9 @@
     "use-supercluster": "^0.2.3"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "eject": "react-scripts eject"
+    "start": "react-scripts --openssl-legacy-provider start",
+    "build": "react-scripts --openssl-legacy-provider build",
+    "eject": "react-scripts --openssl-legacy-provider eject"
   },
   "eslintConfig": {
     "extends": "react-app"
