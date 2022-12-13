@@ -1,16 +1,12 @@
-import React, { useRef, useState } from "react";
+import * as React from "react";
 import { Map, Marker, TileLayer } from "react-leaflet";
 import L from "leaflet";
-import useSwr from "swr";
 import useSupercluster from "use-supercluster";
 import "./App.css";
 
-const fetcher = (...args) => fetch(...args).then(response => response.json());
-
-const cuffs = new L.Icon({
-  iconUrl: "/handcuffs.svg",
-  iconSize: [25, 25]
-});
+import data from "./data.json";
+import useFilters from "./useFilters";
+import FilterForm from "./FilterForm";
 
 const icons = {};
 const fetchIcon = (count, size) => {
@@ -18,109 +14,128 @@ const fetchIcon = (count, size) => {
     icons[count] = L.divIcon({
       html: `<div class="cluster-marker" style="width: ${size}px; height: ${size}px;">
         ${count}
-      </div>`
+      </div>`,
     });
   }
   return icons[count];
 };
 
-export default function App() {
-  const [bounds, setBounds] = useState(null);
-  const [zoom, setZoom] = useState(13);
-  const mapRef = useRef();
+const DEFAULT_CENTER = [40.7831, -73.9712]; // center of manhattan
 
+const filterTemplate = [
+  {
+    label: "LOCATION",
+    filterKey: "locations",
+    type: "checkbox",
+    optionKeys: ["locations"],
+  },
+  {
+    label: "SEMESTER",
+    filterKey: "semesters",
+    type: "checkbox",
+    optionValueKeys: ["semesters"],
+  },
+];
+
+const App = () => {
+  const [bounds, setBounds] = React.useState(null);
+  const [zoom, setZoom] = React.useState(12);
+  const mapRef = React.useRef();
   function updateMap() {
     const b = mapRef.current.leafletElement.getBounds();
     setBounds([
       b.getSouthWest().lng,
       b.getSouthWest().lat,
       b.getNorthEast().lng,
-      b.getNorthEast().lat
+      b.getNorthEast().lat,
     ]);
     setZoom(mapRef.current.leafletElement.getZoom());
   }
 
-  React.useEffect(() => {
-    updateMap();
-  }, []);
+  React.useEffect(updateMap, []);
 
-  const url =
-    "https://data.police.uk/api/crimes-street/all-crime?lat=52.629729&lng=-1.131592&date=2019-10";
-  const { data, error } = useSwr(url, fetcher);
-  const crimes = data && !error ? data : [];
-  const points = crimes.map(crime => ({
+  const [filters, activeFilter, filteredData] = useFilters(
+    filterTemplate,
+    data
+  );
+
+  const points = filteredData.map((d) => ({
     type: "Feature",
-    properties: { cluster: false, crimeId: crime.id, category: crime.category },
+    properties: { cluster: false, pointId: d.student_id },
     geometry: {
       type: "Point",
-      coordinates: [
-        parseFloat(crime.location.longitude),
-        parseFloat(crime.location.latitude)
-      ]
-    }
+      coordinates: [d.long, d.lat],
+    },
   }));
 
   const { clusters, supercluster } = useSupercluster({
     points,
     bounds,
     zoom,
-    options: { radius: 75, maxZoom: 17 }
+    options: { radius: 100, maxZoom: 17 },
   });
 
   return (
-    <Map
-      center={[52.6376, -1.135171]}
-      zoom={13}
-      onMoveEnd={updateMap}
-      ref={mapRef}
-    >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-      />
+    <div className="App">
+      <details>
+        <summary>Filters</summary>
+        <FilterForm filters={filters} activeFilter={activeFilter} />
+      </details>
 
-      {clusters.map(cluster => {
-        // every cluster point has coordinates
-        const [longitude, latitude] = cluster.geometry.coordinates;
-        // the point may be either a cluster or a crime point
-        const {
-          cluster: isCluster,
-          point_count: pointCount
-        } = cluster.properties;
+      <Map
+        center={DEFAULT_CENTER}
+        zoom={zoom}
+        onMoveEnd={updateMap}
+        ref={mapRef}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+        />
 
-        // we have a cluster to render
-        if (isCluster) {
+        {clusters.map((cluster) => {
+          // every cluster point has coordinates
+          const [longitude, latitude] = cluster.geometry.coordinates;
+          // the point may be either a cluster or a crime point
+          const { cluster: isCluster, point_count: pointCount } =
+            cluster.properties;
+
+          // we have a cluster to render
+          if (isCluster) {
+            return (
+              <Marker
+                key={`cluster-${cluster.id}`}
+                position={[latitude, longitude]}
+                icon={fetchIcon(
+                  pointCount,
+                  10 + (pointCount / points.length) * 40
+                )}
+                onClick={() => {
+                  const expansionZoom = Math.min(
+                    supercluster.getClusterExpansionZoom(cluster.id),
+                    17
+                  );
+                  const leaflet = mapRef.current.leafletElement;
+                  leaflet.setView([latitude, longitude], expansionZoom, {
+                    animate: true,
+                  });
+                }}
+              />
+            );
+          }
+
+          // we have a single point to render
           return (
             <Marker
-              key={`cluster-${cluster.id}`}
+              key={`student-${cluster.properties.pointId}`}
               position={[latitude, longitude]}
-              icon={fetchIcon(
-                pointCount,
-                10 + (pointCount / points.length) * 40
-              )}
-              onClick={() => {
-                const expansionZoom = Math.min(
-                  supercluster.getClusterExpansionZoom(cluster.id),
-                  17
-                );
-                const leaflet = mapRef.current.leafletElement;
-                leaflet.setView([latitude, longitude], expansionZoom, {
-                  animate: true
-                });
-              }}
+              // icon={cuffs}
             />
           );
-        }
-
-        // we have a single point (crime) to render
-        return (
-          <Marker
-            key={`crime-${cluster.properties.crimeId}`}
-            position={[latitude, longitude]}
-            icon={cuffs}
-          />
-        );
-      })}
-    </Map>
+        })}
+      </Map>
+    </div>
   );
-}
+};
+
+export default App;
