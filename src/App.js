@@ -37,6 +37,15 @@ const filterTemplate = [
   },
 ];
 
+const asCurrency = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+
+  // These options are needed to round to whole numbers if that's what you want.
+  //minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+  //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+});
+
 const App = () => {
   const [bounds, setBounds] = React.useState(null);
   const [zoom, setZoom] = React.useState(12);
@@ -80,6 +89,31 @@ const App = () => {
       <details>
         <summary>Filters</summary>
         <FilterForm filters={filters} activeFilter={activeFilter} />
+      </details>
+
+      <details open>
+        <summary>Summary</summary>
+        <ul>
+          <li>
+            <strong>Unique Students</strong> {filteredData.length}
+          </li>
+          <li>
+            <strong>Total Rev</strong>{" "}
+            {asCurrency.format(
+              filteredData.reduce(
+                (acc, item) => acc + parseFloat(item.revenue),
+                0
+              )
+            )}
+          </li>
+          <li>
+            <strong>Total Sessions</strong>{" "}
+            {filteredData.reduce(
+              (acc, item) => acc + parseFloat(item.sessions),
+              0
+            )}
+          </li>
+        </ul>
       </details>
 
       <Map
