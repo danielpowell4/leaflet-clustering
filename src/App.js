@@ -72,7 +72,7 @@ const App = () => {
     points,
     bounds,
     zoom,
-    options: { radius: 100, maxZoom: 17 },
+    options: { radius: 40, maxZoom: 17 },
   });
 
   return (
